@@ -1,0 +1,39 @@
+name: Build Phone Briefing Bridge
+on:
+  push:
+    branches: [main, 'feat/phone-briefing-bridge']
+    paths: ['phonebridge/**', '.github/workflows/phone-bridge.yml', 'settings.gradle.kts', 'build.gradle.kts', 'gradle.properties']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install SDK
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.4.1'
+      - name: Test, lint and build
+        run: gradle --no-daemon :phonebridge:testDebugUnitTest :phonebridge:lintDebug :phonebridge:assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: PhoneBriefing-Bridge-debug-apk
+          path: phonebridge/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PhoneBriefing-Bridge-checks
+          path: |
+            phonebridge/build/reports
+            phonebridge/build/test-results

@@ -5,3 +5,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "MyLifeAI"
 include(":app")
+include(":phonebridge")
