@@ -18,8 +18,9 @@ public final class MessageListener extends NotificationListenerService {
             Bundle e = sbn.getNotification().extras;
             CharSequence title = e.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE);
             if (title == null) title = e.getCharSequence(Notification.EXTRA_TITLE, "");
-            List<Notification.MessagingStyle.Message> messages = Build.VERSION.SDK_INT >= 30
-                ? Notification.MessagingStyle.Message.getMessagesFromBundleArray(e.getParcelableArray(Notification.EXTRA_MESSAGES))
+            android.os.Parcelable[] bundledMessages = e.getParcelableArray(Notification.EXTRA_MESSAGES);
+            List<Notification.MessagingStyle.Message> messages = Build.VERSION.SDK_INT >= 30 && bundledMessages != null
+                ? Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundledMessages)
                 : java.util.Collections.emptyList();
             boolean changed = false;
             if (messages != null && !messages.isEmpty()) {
