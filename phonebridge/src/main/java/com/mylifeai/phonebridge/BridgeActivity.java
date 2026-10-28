@@ -70,11 +70,12 @@ public final class BridgeActivity extends Activity {
         text(body, "최근 7일 문자·통화 기록을 읽습니다. 통화 기록에는 대화 음성이 없습니다. 휴대폰이 권한을 거부하면 그 자료는 수집하지 않습니다.", 15, false);
         text(body, "2 · 브리핑 전달", 21, true);
         button(body, "준비된 Drive 전달 파일 선택", () -> startActivityForResult(
-            new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json")
+            new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain"})
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), OPEN_DOC));
         button(body, "Google Drive에 연결 파일 만들기", () -> {
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-                .setType("application/json").putExtra(Intent.EXTRA_TITLE, BridgeRules.FILE_NAME)
+                .setType("text/plain").putExtra(Intent.EXTRA_TITLE, BridgeRules.FILE_NAME)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             new AlertDialog.Builder(this).setTitle("저장 위치 선택")
                 .setMessage("파일 선택기의 왼쪽 메뉴에서 브리핑에 연결된 Google Drive 계정을 선택하세요. 휴대폰 저장소에 저장하면 클라우드 브리핑이 읽을 수 없습니다. 파일에는 수집한 메시지·통화 기록·공유한 전사문이 저장됩니다.")
@@ -105,7 +106,7 @@ public final class BridgeActivity extends Activity {
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private TextView text(LinearLayout parent, String value, int size, boolean bold) {
         TextView t = new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(Color.rgb(25, 45, 54));
-        if (bold) t.setTypeface(null, 1);
+        if (bold) t.setTypeface(null, android.graphics.Typeface.BOLD);
         t.setPadding(0, dp(12), 0, dp(10)); parent.addView(t); return t;
     }
     private Button button(LinearLayout parent, String title, Runnable action) {
@@ -152,10 +153,13 @@ public final class BridgeActivity extends Activity {
         startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("text/*"), IMPORT_TEXT);
     }
     private byte[] readBounded(Uri uri) throws Exception {
+        return readBounded(uri,400000);
+    }
+    private byte[] readBounded(Uri uri, int cap) throws Exception {
         try (InputStream in = getContentResolver().openInputStream(uri); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             if(in == null) throw new java.io.IOException();
             byte[] b = new byte[8192]; int n;
-            while((n=in.read(b)) != -1) { if(out.size() + n > 400000) throw new java.io.IOException("파일이 400KB를 넘습니다. 업무별로 나누어 가져와 주세요."); out.write(b,0,n); }
+            while((n=in.read(b)) != -1) { if(out.size() + n > cap) throw new java.io.IOException("파일 크기 상한 초과"); out.write(b,0,n); }
             return out.toByteArray();
         }
     }
@@ -171,14 +175,15 @@ public final class BridgeActivity extends Activity {
         if(request == CREATE_DOC || request == OPEN_DOC) {
             try {
                 if(request == OPEN_DOC) {
-                    org.json.JSONObject initial = new org.json.JSONObject(BridgeRules.decodeText(readBounded(uri)));
+                    org.json.JSONObject initial = new org.json.JSONObject(BridgeRules.decodeText(readBounded(uri,6000000)));
                     if(!"phone-briefing/v1".equals(initial.optString("schema"))) {
                         feedback.setText("업무 브리핑 연결 전용 파일이 아닙니다. 준비된 전달 파일을 선택해 주세요."); return;
                     }
                 }
                 int flags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                if((flags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == 0) throw new SecurityException();
-                getContentResolver().takePersistableUriPermission(uri, flags);
+                int both = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+                if((flags & both) != both) throw new SecurityException();
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 BridgeStore.prefs(this).edit().putString("target_uri", uri.toString()).apply();
                 SyncJob.schedule(this); publish();
             } catch(Exception e) { feedback.setText("계속 쓸 수 있는 파일 권한을 받지 못했습니다. 다른 저장 위치를 선택해 주세요."); }

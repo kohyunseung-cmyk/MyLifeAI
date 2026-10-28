@@ -2,6 +2,7 @@ package com.mylifeai.phonebridge;
 
 import android.app.Notification;
 import android.os.Bundle;
+import android.os.Build;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import java.util.List;
@@ -17,7 +18,9 @@ public final class MessageListener extends NotificationListenerService {
             Bundle e = sbn.getNotification().extras;
             CharSequence title = e.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE);
             if (title == null) title = e.getCharSequence(Notification.EXTRA_TITLE, "");
-            List<Notification.MessagingStyle.Message> messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(e.getParcelableArray(Notification.EXTRA_MESSAGES));
+            List<Notification.MessagingStyle.Message> messages = Build.VERSION.SDK_INT >= 30
+                ? Notification.MessagingStyle.Message.getMessagesFromBundleArray(e.getParcelableArray(Notification.EXTRA_MESSAGES))
+                : java.util.Collections.emptyList();
             boolean changed = false;
             if (messages != null && !messages.isEmpty()) {
                 for (Notification.MessagingStyle.Message m : messages) {

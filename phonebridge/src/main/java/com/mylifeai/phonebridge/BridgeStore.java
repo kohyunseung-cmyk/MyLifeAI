@@ -25,6 +25,7 @@ public final class BridgeStore extends SQLiteOpenHelper {
     }
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { }
     public synchronized boolean add(String id, String source, long time, JSONObject payload) {
+        getWritableDatabase().delete("events", "time < ?", new String[]{Long.toString(System.currentTimeMillis() - BridgeRules.WINDOW_MS)});
         ContentValues row = new ContentValues();
         row.put("id", id); row.put("source", source); row.put("time", time); row.put("payload", payload.toString());
         return getWritableDatabase().insertWithOnConflict("events", null, row, SQLiteDatabase.CONFLICT_IGNORE) != -1;
