@@ -1,4 +1,7 @@
-plugins { id("com.android.application") }
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
 android {
     namespace = "com.mylifeai.local"
     compileSdk = 36
